@@ -14,7 +14,7 @@ class CategoryViewSetTests(APITestCase):
         response = self.client.get(reverse("category-list"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
+        self.assertEqual(len(response.data["results"]), 1)
 
     def test_retrieve_category(self):
         response = self.client.get(reverse("category-detail", args=[self.category.id]))
@@ -36,6 +36,32 @@ class CategoryViewSetTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("name", response.data)
 
+    def test_pagination_categories(self):
+        # Já existe uma categoria criada no setUp.
+        # Vamos criar mais 11, totalizando 12.
+        for i in range(2, 13):
+            Category.objects.create(name=f"Categoria {i}")
+
+        url = reverse("category-list")
+
+        # Primeira página
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 12)
+        self.assertEqual(len(response.data["results"]), 5)
+        self.assertIsNotNone(response.data["next"])
+        self.assertIsNone(response.data["previous"])
+
+        # Segunda página
+        response = self.client.get(url, {"page": 2})
+        self.assertEqual(len(response.data["results"]), 5)
+
+        # Terceira página
+        response = self.client.get(url, {"page": 3})
+        self.assertEqual(len(response.data["results"]), 2)
+        self.assertIsNone(response.data["next"])
+
 
 class ProductViewSetTests(APITestCase):
 
@@ -49,8 +75,8 @@ class ProductViewSetTests(APITestCase):
         response = self.client.get(reverse("product-list"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["category"]["name"], "Livros")
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["category"]["name"], "Livros")
 
     def test_retrieve_product(self):
         response = self.client.get(reverse("product-detail", args=[self.product.id]))
@@ -125,7 +151,7 @@ class OrderViewSetTests(APITestCase):
         response = self.client.get(reverse("order-list"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
+        self.assertEqual(len(response.data["results"]), 1)
 
     def test_create_order(self):
         response = self.client.post(
