@@ -9,15 +9,15 @@ from .serializers import (
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
-    queryset = Category.objects.all()
+    queryset = Category.objects.order_by("id")
     serializer_class = CategorySerializer
 
 
 class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.select_related("category").all()
+    queryset = Product.objects.select_related("category").order_by("id")
     serializer_class = ProductSerializer
 
 
 class OrderViewSet(viewsets.ModelViewSet):
-    queryset = Order.objects.all()
+    queryset = Order.objects.order_by("id")
     serializer_class = OrderSerializer
