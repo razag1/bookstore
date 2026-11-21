@@ -1,0 +1,42 @@
+
+name: Bookstore CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Configure environment
+        run: cp .env.example .env
+
+      - name: Build Docker containers
+        run: |
+          docker compose up -d --build --wait
+          curl --fail --silent --show-error \
+            --retry 15 --retry-delay 2 \
+            --retry-connrefused \
+            http://127.0.0.1:8000/api/
+
+      - name: Run migrations
+        run: docker compose exec -T web python manage.py migrate
+
+      - name: Run tests
+        run: docker compose exec -T web python manage.py test
+
+      - name: Clean Docker containers and volumes
+        if: always()
+        run: docker compose down --volumes
