@@ -4,6 +4,9 @@ from rest_framework.test import APITestCase
 
 from .models import Category, Product, Order
 
+from django.contrib.auth import get_user_model
+from rest_framework.authtoken.models import Token
+
 
 class CategoryViewSetTests(APITestCase):
 
@@ -139,12 +142,26 @@ class ProductViewSetTests(APITestCase):
 class OrderViewSetTests(APITestCase):
 
     def setUp(self):
+        # Cria um usuário temporário para os testes
+        self.user = get_user_model().objects.create_user(
+            username="test_user", password="TestPassword123!"
+        )
+
+        # Gera um token para o usuário de teste
+        self.token = Token.objects.create(user=self.user)
+
+        # Configura as requisições autenticadas
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
+
+        # Cria uma categoria temporária
         category = Category.objects.create(name="Livros")
 
+        # Cria um produto temporário
         self.product = Product.objects.create(
             name="Livro Python", price="90.00", category=category
         )
 
+        # Cria um pedido temporário
         self.order = Order.objects.create(product=self.product, quantity=2)
 
     def test_list_orders(self):
@@ -186,3 +203,37 @@ class OrderViewSetTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(Order.objects.count(), 0)
+
+    def test_order_without_token(self):
+        self.client.credentials()
+
+        response = self.client.get(reverse("order-list"))
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_order_invalid_token(self):
+        self.client.credentials(HTTP_AUTHORIZATION="Token invalido")
+
+        response = self.client.get(reverse("order-list"))
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_order_valid_token(self):
+        response = self.client.get(reverse("order-list"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.assertEqual(response.data["count"], 1)
+
+    def test_create_order_without_token(self):
+        self.client.credentials()
+
+        response = self.client.post(
+            reverse("order-list"),
+            {"product": self.product.id, "quantity": 3},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        self.assertEqual(Order.objects.count(), 1)
